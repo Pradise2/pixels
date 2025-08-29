@@ -51,8 +51,56 @@ async function handler(req: NextRequest): Promise<NextResponse> {
         return new NextResponse('Invalid Farcaster message', { status: 400 });
     }
 
-    const state = JSON.parse(decodeURIComponent(message.state || '{"mode":"claim"}'));
-    const buttonIndex = message.button;
+    // In /api/action/route.ts, inside the handler function
+
+// ... after the start of the handler function and message validation
+const state = JSON.parse(decodeURIComponent(message.state || '{"mode":"claim"}'));
+const buttonIndex = message.button;
+const userFid = message.interactor.fid.toString();
+
+// --- JOIN COMMUNITY LOGIC (Button 3) ---
+if (buttonIndex === 3) {
+    const inputText = message.input || '';
+    const channelName = inputText.startsWith('/') ? inputText : `/${inputText}`;
+
+    if (channelName.length < 2) {
+        return createResultFrame("Invalid channel name.");
+    }
+
+    try {
+        // Find or create the community in the database
+        let { data: community, error: communityError } = await supabase
+            .from('communities')
+            .select('id')
+            .eq('name', channelName)
+            .single();
+
+        if (communityError && communityError.code !== 'PGRST116') throw communityError;
+
+        if (!community) {
+            const { data: newCommunity, error: insertError } = await supabase
+                .from('communities')
+                .insert({ name: channelName, channel_url: `https://warpcast.com/~/channel${channelName}` })
+                .select('id')
+                .single();
+            if (insertError) throw insertError;
+            community = newCommunity;
+        }
+
+        // Upsert the user into the community_members table.
+        // This adds them if they don't exist, or updates their community if they're switching.
+        const { error: upsertError } = await supabase
+            .from('community_members')
+            .upsert({ user_fid: userFid, community_id: community.id }, { onConflict: 'user_fid' });
+
+        if (upsertError) throw upsertError;
+
+        return createResultFrame(`Successfully joined the ${channelName} community!`);
+    } catch (error: any) {
+        console.error("Error joining community:", error);
+        return createResultFrame("Error joining community.");
+    }
+}
 
     // --- MODE SWITCH LOGIC (Button 2) ---
     if (buttonIndex === 2) {
