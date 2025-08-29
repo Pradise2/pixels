@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 async function getResponse(req: NextRequest): Promise<NextResponse> {
   // For the MVP, we'll use a static placeholder image of a grid.
   // In the future, this will be a dynamically generated image of the live map.
-  const imageUrl = "https://i.imgur.com/M3m2OqF.png"; // A simple 100x100 grid placeholder
-
+  const imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/image?t=${Date.now()}`;
   const html = `
     <!DOCTYPE html>
     <html>
