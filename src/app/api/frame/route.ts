@@ -44,6 +44,7 @@ const html = `
       <!-- Button 3 is for joining the community entered in the text box -->
       <meta name="fc:frame:button:3" content="Join Community" />
 
+      <meta name="fc:frame:button:4" content="Generate Art for Last Tile" />
       <meta name="fc:frame:post_url" content="${process.env.NEXT_PUBLIC_BASE_URL}/api/action" />
     </head>
   </html>
