@@ -26,10 +26,18 @@ export default function GameBoard() {
       setIsLoading(true);
       
       // Fetch all tiles for the map
-      const { data: tileData, error: tileError } = await supabase
-        .from('tiles')
-        .select('x, y, color, owner_address');
+      const { data: seasonData, error: seasonError } = await supabase
+  .from('seasons').select('id').eq('is_active', true).single();
+if (seasonError || !seasonData) {
+  console.error("No active season");
+  setIsLoading(false);
+  return;
+}
 
+const { data: tileData, error: tileError } = await supabase
+  .from('tiles')
+  .select('x, y, color, owner_address')
+  .eq('season_id', seasonData.id); // <-- Add this filter
       if (tileError) {
         console.error('Error fetching tiles:', tileError);
       } else if (tileData) {
