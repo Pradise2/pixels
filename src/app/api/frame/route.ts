@@ -22,29 +22,32 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
   const nextMode = gameMode === 'claim' ? 'attack' : 'claim';
   const serializedState = encodeURIComponent(JSON.stringify({ mode: nextMode }));
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Pixel Wars</title>
-        <meta property="og:title" content="Pixel Wars" />
-        <meta property="og:image" content="${imageUrl}" />
-        <meta name="fc:frame" content="vNext" />
-        <meta name="fc:frame:image" content="${imageUrl}" />
+  // Inside /api/frame/route.ts, in the getResponse function
 
-        <!-- This tag holds the current state of our frame -->
-        <meta name="fc:frame:state" content="${serializedState}" />
-        
-        <!-- Button 1 is our main action button. Its text changes based on the current mode. -->
-        <meta name="fc:frame:button:1" content="${gameMode === 'claim' ? 'Claim a Tile' : 'Attack a Tile'}" />
-        
-        <!-- Button 2 is our mode switcher. -->
-        <meta name="fc:frame:button:2" content="Switch to ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode" />
-        
-        <meta name="fc:frame:post_url" content="${process.env.NEXT_PUBLIC_BASE_URL}/api/action" />
-      </head>
-    </html>
-  `;
+const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Pixel Wars</title>
+      <meta property="og:title" content="Pixel Wars" />
+      <meta property="og:image" content="${imageUrl}" />
+      <meta name="fc:frame" content="vNext" />
+      <meta name="fc:frame:image" content="${imageUrl}" />
+      <meta name="fc:frame:state" content="${serializedState}" />
+      
+      <!-- Add a text input for joining a community -->
+      <meta name="fc:frame:input:text" content="Enter channel name, e.g. /base" />
+
+      <meta name="fc:frame:button:1" content="${gameMode === 'claim' ? 'Claim Tile' : 'Attack Tile'}" />
+      <meta name="fc:frame:button:2" content="Switch to ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}" />
+      
+      <!-- Button 3 is for joining the community entered in the text box -->
+      <meta name="fc:frame:button:3" content="Join Community" />
+
+      <meta name="fc:frame:post_url" content="${process.env.NEXT_PUBLIC_BASE_URL}/api/action" />
+    </head>
+  </html>
+`;
 
   return new NextResponse(html, { status: 200, headers: { 'Content-Type': 'text/html' } });
 }
