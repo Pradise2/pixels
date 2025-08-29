@@ -11,9 +11,14 @@ const IMAGE_HEIGHT = MAP_DIMENSION * TILE_SIZE;
 export async function GET() {
   try {
     // 1. Fetch all claimed tiles from the database
-    const { data: tiles, error } = await supabase
-      .from('tiles')
-      .select('x, y, color');
+    const { data: seasonData, error: seasonError } = await supabase
+  .from('seasons').select('id').eq('is_active', true).single();
+if (seasonError || !seasonData) throw new Error("No active season found");
+
+const { data: tiles, error } = await supabase
+  .from('tiles')
+  .select('x, y, color')
+  .eq('season_id', seasonData.id); // <-- Add this filter
 
     if (error) {
       console.error("Error fetching tiles:", error);
