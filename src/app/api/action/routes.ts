@@ -3,10 +3,12 @@ import { FrameRequest, getFrameMessage } from '@farcaster/hub-rest';
 import { ethers } from 'ethers';
 import { supabase } from '../../../lib/supabaseClient';
 import abi from '../../../lib/contract-abi.json';
+import Replicate from 'replicate';
 
 const CONTRACT_ADDRESS = process.env.PIXEL_MAP_CONTRACT_ADDRESS!;
 const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL!;
 const WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY!;
+const replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN! });
 
 // Helper function to create a response frame
 function createFrameResponse(imageUrl: string, button1Text: string, button2Text: string, postUrl: string, newState: object) {
@@ -153,6 +155,58 @@ if (buttonIndex === 3) {
                 return createResultFrame(`Captured! Tile (${targetTile.x},${targetTile.y}) is yours!`);
             }
         }
+
+// In /api/action/route.ts -> handler()
+// Place this block after the "JOIN COMMUNITY LOGIC" and before "MODE SWITCH LOGIC"
+
+// --- AI ART GENERATION LOGIC (Button 4) ---
+if (buttonIndex === 4) {
+    const artPrompt = message.input || '';
+    if (artPrompt.length < 5) {
+        return createResultFrame("Art prompt is too short.");
+    }
+
+    try {
+        // 1. Find the user's most recently claimed tile in the current season
+        const { data: lastTile, error: lastTileError } = await supabase
+            .from('tiles')
+            .select('id')
+            .eq('owner_fid', userFid)
+            .eq('season_id', activeSeasonId) // Make sure it's in the current season
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (lastTileError || !lastTile) throw new Error("You don't own any tiles.");
+
+        // 2. Call the Replicate API to generate a pixel art image
+        const model = "pixelfly/pixel-art-xl:b4289657157a1b4566723af3747ba6a68f7b55f6534471a3377a06f363c45731";
+        const output = await replicate.run(model, { input: { prompt: `pixel art, ${artPrompt}` } });
+        const generatedImageUrl = (output as string[])[0];
+
+        // 3. Upload the generated image from the URL to our Supabase Storage
+        const imageResponse = await fetch(generatedImageUrl);
+        const imageBlob = await imageResponse.blob();
+        const filePath = `${userFid}/${lastTile.id}-${Date.now()}.png`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('tile-art')
+            .upload(filePath, imageBlob);
+        
+        if (uploadError) throw uploadError;
+
+        // 4. Get the public URL of the uploaded image
+        const { data: { publicUrl } } = supabase.storage
+            .from('tile-art')
+            .getPublicUrl(filePath);
+
+        // 5. Update the tile record in our database with the new image URL
+        await supabase.from('tiles').update({ image_url: publicUrl }).eq('id', lastTile.id);
+        
+        return createResultFrame("Art generated successfully!");
+
+    } 
+}
         
         // --- CLAIM LOGIC ---
         if (actionToPerform === 'claim') {
