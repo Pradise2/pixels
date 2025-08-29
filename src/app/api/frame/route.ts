@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { FrameRequest, getFrameMessage } from '@farcaster/hub-rest';
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
-  // For the MVP, we'll use a static placeholder image of a grid.
-  // In the future, this will be a dynamically generated image of the live map.
+  // We need to read the request body to get the frame message
+  const body: FrameRequest = await req.json().catch(() => ({})); 
+
+  // Validate the message to safely access its contents
+  const { message } = await getFrameMessage(body, {
+      hubHttpUrl: "https://api.hub.wevm.dev",
+      fetchHubContext: true, // This is optional but good practice
+  }).catch(() => ({ message: undefined }));
+
+  // Deserialize the state from the previous frame action. Default to 'claim' mode.
+  const state = message?.state ? JSON.parse(decodeURIComponent(message.state)) : { mode: 'claim' };
+  const gameMode = state.mode;
+
+  // Dynamically generate the image URL with a cache-busting timestamp
   const imageUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/image?t=${Date.now()}`;
+
+  // This is the state we will pass to the NEXT frame. If we are in 'claim' mode, the next state will be 'attack'.
+  const nextMode = gameMode === 'claim' ? 'attack' : 'claim';
+  const serializedState = encodeURIComponent(JSON.stringify({ mode: nextMode }));
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -13,19 +31,22 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
         <meta property="og:image" content="${imageUrl}" />
         <meta name="fc:frame" content="vNext" />
         <meta name="fc:frame:image" content="${imageUrl}" />
-        <meta name="fc:frame:button:1" content="Claim a Random Tile" />
+
+        <!-- This tag holds the current state of our frame -->
+        <meta name="fc:frame:state" content="${serializedState}" />
+        
+        <!-- Button 1 is our main action button. Its text changes based on the current mode. -->
+        <meta name="fc:frame:button:1" content="${gameMode === 'claim' ? 'Claim a Tile' : 'Attack a Tile'}" />
+        
+        <!-- Button 2 is our mode switcher. -->
+        <meta name="fc:frame:button:2" content="Switch to ${nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} Mode" />
+        
         <meta name="fc:frame:post_url" content="${process.env.NEXT_PUBLIC_BASE_URL}/api/action" />
       </head>
-      <body>
-        <h1>Pixel Wars Frame</h1>
-      </body>
     </html>
   `;
 
-  return new NextResponse(html, {
-    status: 200,
-    headers: { 'Content-Type': 'text/html' },
-  });
+  return new NextResponse(html, { status: 200, headers: { 'Content-Type': 'text/html' } });
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -36,5 +57,4 @@ export async function GET(req: NextRequest): Promise<Response> {
   return getResponse(req);
 }
 
-// Disable caching for this route
 export const dynamic = 'force-dynamic';
