@@ -14,6 +14,7 @@ type Tile = {
 type Player = {
   owner_address: string;
   tile_count: number;
+  pixel_balance: number;
 };
 
 // NEW: Define the structure for community data
