@@ -226,11 +226,28 @@ if (buttonIndex === 4) {
             const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
             const tx = await contract.claimTile(userWalletAddress, randomX, randomY);
             await tx.wait();
+            // In /api/action/route.ts -> inside the "CLAIM LOGIC" block
 
-            await supabase.from('tiles').insert({
-                x: randomX, y: randomY, owner_address: userWalletAddress.toLowerCase(),
-                owner_fid: userFid, color: '#'+(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0'),
-                season_id: activeSeasonId, health: 3 // Set initial health
+// ... after "await tx.wait();"
+
+// --- AWARD $PIXEL TOKENS ---
+const rewardAmount = 10; // Award 10 $PIXEL for each new tile
+
+// First, ensure a user record exists
+await supabase.from('users').upsert(
+    { fid: userFid, wallet_address: userWalletAddress.toLowerCase() },
+    { onConflict: 'fid' }
+);
+
+// Then, increment their balance
+await supabase.rpc('increment_pixel_balance', {
+    user_fid: userFid,
+    amount: rewardAmount
+});
+     await supabase.from('tiles').insert({
+         x: randomX, y: randomY, owner_address: userWalletAddress.toLowerCase(),
+         owner_fid: userFid, color: '#'+(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0'),
+      season_id: activeSeasonId, health: 3 // Set initial health
             });
             return createResultFrame(`You claimed tile (${randomX}, ${randomY})!`);
         }
