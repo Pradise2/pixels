@@ -25,37 +25,45 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    // 1. Find an unclaimed tile using our database
-    let randomX, randomY;
-    let isClaimed = true;
-    let attempts = 0;
+  // 1. Get the current active season from the database
+  const { data: seasonData, error: seasonError } = await supabase
+    .from('seasons')
+    .select('id')
+    .eq('is_active', true)
+    .single();
 
-    while (isClaimed && attempts < 10) { // Limit attempts to prevent infinite loops
-      attempts++;
-      randomX = Math.floor(Math.random() * 100);
-      randomY = Math.floor(Math.random() * 100);
+  if (seasonError || !seasonData) {
+    throw new Error("Could not find an active season.");
+  }
+  const activeSeasonId = seasonData.id;
 
-      const { data, error } = await supabase
-        .from('tiles')
-        .select('id')
-        .eq('x', randomX)
-        .eq('y', randomY)
-        .single(); // .single() is key here
+  let randomX, randomY;
+  let isClaimed = true;
+  let attempts = 0;
 
+  while (isClaimed && attempts < 10) {
+    attempts++;
+    randomX = Math.floor(Math.random() * 100);
+    randomY = Math.floor(Math.random() * 100);
+
+    const { data, error } = await supabase
+      .from('tiles')
+      .select('id')
+      .eq('x', randomX)
+      .eq('y', randomY)
+      .eq('season_id', activeSeasonId) // <-- IMPORTANT: Check only in the current season
       // If no record is found (data is null), the tile is available
-      if (!data) {
-        isClaimed = false;
-      }
-      
-      // We expect an error when the row is not found, so we ignore that specific error code.
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
+    
+    if (!data) {
+    if (!data) {
+      isClaimed = false;
     }
+    if (error && error.code !== 'PGRST116') throw error;
+  }
 
-    if (isClaimed) {
-      throw new Error("Could not find an available tile after 10 attempts.");
-    }
+  if (isClaimed) {
+    throw new Error("Could not find an available tile.");
+  }
 
     // 2. Connect to the blockchain and send transaction
     const provider = new ethers.JsonRpcProvider(RPC_URL);
@@ -68,17 +76,17 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
     // 3. Write to the database AFTER the on-chain transaction is successful
     const { error: insertError } = await supabase.from('tiles').insert({
-        x: randomX,
-        y: randomY,
-        owner_address: userWalletAddress.toLowerCase(), // Standardize address to lowercase
-        owner_fid: message.interactor.fid.toString(),
-        color: '#'+(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0') // Assign a random color
-    });
+      x: randomX,
+      y: randomY,
+      owner_address: userWalletAddress.toLowerCase(),
+      owner_fid: message.interactor.fid.toString(),
+      color: '#'+(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0'),
+      season_id: activeSeasonId // <-- IMPORTANT: Save the season ID
+  });
 
-    if (insertError) {
-        // If this fails, we have an inconsistency. Log it for now.
-        console.error("CRITICAL: Failed to write to Supabase after successful transaction:", insertError);
-    }
+  if (insertError) {
+      console.error("CRITICAL: Failed to write to Supabase:", insertError);
+  }
 
     // 4. Respond with a "Success" frame
     const imageUrl = "https://i.imgur.com/g0T0Rep.png";
