@@ -1,9 +1,9 @@
-'use client'; // This is crucial! It marks this as a client-side component
+'use client';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-// Define the structure of our data
+// Define the data structure for a single tile on the map
 type Tile = {
   x: number;
   y: number;
@@ -11,13 +11,14 @@ type Tile = {
   owner_address: string;
 };
 
+// Define the data structure for a player on the leaderboard
 type Player = {
   owner_address: string;
   tile_count: number;
   pixel_balance: number;
 };
 
-// NEW: Define the structure for community data
+// Define the data structure for a community on the leaderboard
 type Community = {
   id: number;
   name: string;
@@ -26,55 +27,57 @@ type Community = {
 };
 
 export default function GameBoard() {
+  // State variables to hold our data
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [communities, setCommunities] = useState<Community[]>([]); // NEW: State for community data
+  const [communities, setCommunities] = useState<Community[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // This effect runs once when the component mounts to fetch all game data
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
-      
-      // 1. Fetch active season (no changes here)
+
+      // 1. Get the current active season from the database
       const { data: seasonData, error: seasonError } = await supabase
         .from('seasons').select('id').eq('is_active', true).single();
-      
+        
       if (seasonError || !seasonData) {
-        console.error("No active season");
+        console.error("No active season found. The game may need to be initialized.");
         setIsLoading(false);
         return;
       }
       const activeSeasonId = seasonData.id;
 
-      // 2. Fetch tile and player data (no changes here)
+      // 2. Fetch all tiles for rendering the map display
       const { data: tileData, error: tileError } = await supabase
         .from('tiles')
         .select('x, y, color, owner_address')
         .eq('season_id', activeSeasonId);
-
-      if (tileError) {
-        console.error('Error fetching tiles:', tileError);
-      } else if (tileData) {
+      if (tileData) {
         setTiles(tileData);
-        // Calculate leaderboard data (no changes here)
-        const playerTileCounts: { [address: string]: number } = tileData.reduce((acc, tile) => {
-          acc[tile.owner_address] = (acc[tile.owner_address] || 0) + 1;
-          return acc;
-        }, {} as { [address: string]: number });
-        const sortedPlayers = Object.entries(playerTileCounts)
-          .map(([address, count]) => ({ owner_address: address, tile_count: count }))
-          .sort((a, b) => b.tile_count - a.tile_count).slice(0, 10);
-        setPlayers(sortedPlayers);
       }
-      
-      // 3. NEW: Fetch community stats using our SQL function
+
+      // 3. Fetch the top 10 player stats using our efficient SQL function
+      const { data: playerData, error: playerError } = await supabase
+        .rpc('get_player_stats', { current_season_id: activeSeasonId });
+
+      if (playerData) {
+        // Map the wallet_address to owner_address to match our type definition
+        setPlayers(playerData.map(p => ({ ...p, owner_address: p.wallet_address })));
+      }
+
+      // 4. Fetch the community stats using our efficient SQL function
       const { data: communityData, error: communityError } = await supabase
         .rpc('get_community_stats', { current_season_id: activeSeasonId });
 
-      if (communityError) {
-        console.error('Error fetching community stats:', communityError);
-      } else if (communityData) {
+      if (communityData) {
         setCommunities(communityData);
+      }
+      
+      // Log any errors for easier debugging
+      if (tileError || playerError || communityError) {
+        console.error('Error fetching data:', { tileError, playerError, communityError });
       }
 
       setIsLoading(false);
@@ -83,28 +86,38 @@ export default function GameBoard() {
     fetchData();
   }, []);
 
+  // Display a loading message while fetching data
   if (isLoading) {
-    return <p className="text-center">Loading the battlefield...</p>;
+    return <p className="text-center text-lg">Loading the battlefield...</p>;
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      {/* Map Display (No changes needed here) */}
+      {/* Map Display Column */}
       <div className="md:col-span-2 bg-gray-800 p-2 rounded-lg aspect-square">
          <div className="grid grid-cols-100 gap-px" style={{ width: '100%', height: '100%' }}>
+            {/* Create a 100x100 grid of divs (10,000 total) */}
             {Array.from({ length: 10000 }).map((_, index) => {
                 const x = index % 100;
                 const y = Math.floor(index / 100);
+                // Find if a tile from our fetched data matches this coordinate
                 const tile = tiles.find(t => t.x === x && t.y === y);
-                return <div key={index} className="aspect-square" style={{ backgroundColor: tile ? tile.color : '#FFFFFF' }} />;
+                return (
+                    <div
+                        key={index}
+                        className="aspect-square"
+                        // If a tile exists, use its color; otherwise, default to white
+                        style={{ backgroundColor: tile ? tile.color : '#FFFFFF' }}
+                    />
+                );
             })}
         </div>
       </div>
 
-      {/* CHANGED: Leaderboards Column Wrapper */}
+      {/* Leaderboards Column */}
       <div className="md:col-span-1 space-y-8">
         
-        {/* NEW: Community Leaderboard Section */}
+        {/* Community Leaderboard */}
         <div className="bg-gray-800 p-4 rounded-lg">
           <h2 className="text-2xl font-bold mb-4 text-center">Community Wars</h2>
           <div className="space-y-3">
@@ -122,21 +135,25 @@ export default function GameBoard() {
           </div>
         </div>
         
-        {/* Player Leaderboard (No changes needed here) */}
+        {/* Player Leaderboard */}
         <div className="md:col-span-1 bg-gray-800 p-4 rounded-lg">
           <h2 className="text-2xl font-bold mb-4 text-center">Top Players</h2>
-          <ol className="list-decimal list-inside space-y-2">
+          <ol className="list-decimal list-inside space-y-3">
             {players.map((player) => (
               <li key={player.owner_address} className="truncate">
-                <span className="font-mono text-sm bg-gray-700 p-1 rounded">
-                  {player.owner_address.substring(0, 6)}...{player.owner_address.substring(player.owner_address.length - 4)}
-                </span>
-                <span className="float-right font-bold">{player.tile_count} tiles</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-sm bg-gray-700 p-1 rounded">
+                    {player.owner_address.substring(0, 6)}...{player.owner_address.substring(player.owner_address.length - 4)}
+                  </span>
+                  <span className="font-bold">{player.tile_count} tiles</span>
+                </div>
+                <div className="text-xs text-yellow-400 text-right font-semibold">
+                  {player.pixel_balance || 0} $PIXEL
+                </div>
               </li>
             ))}
           </ol>
         </div>
-
       </div>
     </div>
   );
