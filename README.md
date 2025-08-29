@@ -110,22 +110,3 @@ This MVP is the foundation for a fully decentralized, player-owned game economy.
 We are actively seeking contributions from the Farcaster community! If you are interested in helping build the future of Pixel Wars, please check out the open issues or reach out to us in the `/pixel-wars` channel on Farcaster.
 
 ## 📄 License
-{
-  "accountAssociation": {
-    "header": "eyJmaWQiOjMyMDI2NCwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDFGMkE1MkYwZjlDZDYwZGY4RDAwNTdjNGE1YTEwRUFlNjQyNjNCNDgifQ",
-    "payload": "eyJkb21haW4iOiI0MWUwNDk1YjQzZTQubmdyb2stZnJlZS5hcHAifQ",
-    "signature": "MHg5ZTMxNGY5ODBlNzU2Zjg4MmM5NzYzMzhlZTc4YmQ4OWNhM2YwNjIyOGYwMzNmMDkyM2VjODllYjU2NjcyZGRkNGM4MWQ4MjFmNjYwNmU3Njk2MjQ0ZmYxNTdjODQ5ZDk5MzRjZjEyMDdhOGU2M2IzOWUwOTFjOGY3ZWE1NWUzNjFj"
-  },
-  "frame": {
-    "version": "1",
-    "name": "Example Frame",
-    "iconUrl": "https://41e0495b43e4.ngrok-free.app/icon.png",
-    "homeUrl": "https://41e0495b43e4.ngrok-free.app",
-    "imageUrl": "https://41e0495b43e4.ngrok-free.app/image.png",
-    "buttonTitle": "Check this out",
-    "splashImageUrl": "https://41e0495b43e4.ngrok-free.app/splash.png",
-    "splashBackgroundColor": "#eeccff",
-    "webhookUrl": "https://41e0495b43e4.ngrok-free.app/api/webhook"
-  }
-}
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
