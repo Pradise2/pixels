@@ -107,6 +107,6 @@ This MVP is the foundation for a fully decentralized, player-owned game economy.
 
 ## 🤝 Contributing
 
-We are actively seeking contributions from the Farcaster community! If you are interested in helping build the future of Pixel Wars, please check out the open issues or reach out to us in the `/pixel-wars` channel on Farcaster.
+
 
 ## 📄 License
