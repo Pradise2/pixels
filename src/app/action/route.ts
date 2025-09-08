@@ -54,7 +54,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       .eq('season_id', activeSeasonId) // <-- IMPORTANT: Check only in the current season
       // If no record is found (data is null), the tile is available
     
-    if (!data) {
+    
     if (!data) {
       isClaimed = false;
     }
